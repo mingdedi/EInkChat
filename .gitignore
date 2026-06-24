@@ -12,6 +12,8 @@ Thumbs.db
 .idea/
 *.swp
 *~
+*.png
+*.jpg
 
 # Logs
 *.log

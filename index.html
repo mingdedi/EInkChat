@@ -25,7 +25,6 @@
 
 html, body {
   width: 100%;
-  height: 100%;
   background: #FFFFFF;
   color: #000000;
   font-family: "Droid Sans Fallback", "Noto Sans CJK SC", sans-serif;
@@ -34,10 +33,18 @@ html, body {
   -webkit-font-smoothing: none;
   font-smooth: never;
 }
+html { height: 100%; }
+/* Let body grow with content so padding-bottom actually creates space below
+   the last message. With height:100% the body is clipped to viewport and
+   overflow content escapes the padding, allowing the fixed input bar to
+   cover the last bubble. */
+body { min-height: 100%; }
 
 body {
   display: block;
-  padding-bottom: 96px; /* reserve space for fixed input bar */
+  /* Reserve space for fixed input bar; JS overrides this with the actual
+     measured inputbar height so multi-line textarea never covers messages. */
+  padding-bottom: 128px;
 }
 
 /* ---- Top bar ---- */
@@ -357,7 +364,7 @@ body {
 
 <div class="chat" id="chat"></div>
 
-<div class="inputbar">
+<div class="inputbar" id="inputbar">
   <textarea id="input" placeholder="输入消息..." rows="1"></textarea>
   <button type="button" id="btnSend">发送</button>
 </div>
@@ -396,6 +403,7 @@ body {
   var elChat = document.getElementById('chat');
   var elInput = document.getElementById('input');
   var elBtnSend = document.getElementById('btnSend');
+  var elInputBar = document.getElementById('inputbar');
 
   // ---- Utils ----
   function genId() {
@@ -411,6 +419,28 @@ body {
 
   function currentModel() {
     return findModel(state.currentId);
+  }
+
+  // Keep body's bottom padding ≥ inputbar height so the last bubble is never
+  // covered by the fixed input bar (matters when textarea grows multi-line).
+  function syncInputBarPadding() {
+    if (!elInputBar) return;
+    var h = elInputBar.offsetHeight || 0;
+    if (h > 0) document.body.style.paddingBottom = (h + 24) + 'px';
+  }
+
+  // Scroll the page to the bottom after the browser has laid out the new
+  // content. Two rAFs guarantee the appended bubble is measured.
+  function scrollToBottom() {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var target = Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight
+        );
+        window.scrollTo(0, target);
+      });
+    });
   }
 
   // ---- Persistence ----
@@ -689,7 +719,7 @@ body {
     wrap.appendChild(bubble);
     elChat.appendChild(wrap);
 
-    window.scrollTo(0, document.body.scrollHeight);
+    scrollToBottom();
     return bubble;
   }
 
@@ -774,9 +804,10 @@ body {
       if (!reply) reply = '[空回复]';
       pending.textContent = reply;
       history.push({ role: 'assistant', content: reply });
-      window.scrollTo(0, document.body.scrollHeight);
+      scrollToBottom();
     }).catch(function (err) {
       pending.textContent = '[网络错误] ' + (err && err.message ? err.message : String(err));
+      scrollToBottom();
     }).then(function () {
       sending = false;
       elBtnSend.disabled = false;
@@ -808,6 +839,12 @@ body {
         send();
       }
     });
+
+    // Keep bottom padding in sync with the actual input bar height so a
+    // multi-line textarea never hides the latest message.
+    elInput.addEventListener('input', syncInputBarPadding);
+    window.addEventListener('resize', syncInputBarPadding);
+    syncInputBarPadding();
 
     if (state.models.length === 0) {
       elSettings.className = 'settings open';
