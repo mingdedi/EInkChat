@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<!--
+  E-Ink LLM Chat
+  Pure front-end local tool. API keys and configuration are stored ONLY in
+  this device's browser localStorage. No data is uploaded to any server other
+  than the LLM endpoint you configure. Open source, zero dependencies.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>E-Ink LLM Chat</title>
+<style>
+/* ---- E-Ink reset: kill every animation, transition, and soft visual ---- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  transition: none !important;
+  animation: none !important;
+  -webkit-tap-highlight-color: transparent;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #FFFFFF;
+  color: #000000;
+  font-family: "Droid Sans Fallback", "Noto Sans CJK SC", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+body {
+  display: block;
+  padding-bottom: 96px; /* reserve space for fixed input bar */
+}
+
+/* ---- Top bar ---- */
+.topbar {
+  display: block;
+  width: 100%;
+  border-bottom: 2px solid #000000;
+  padding: 12px 16px;
+  background: #FFFFFF;
+}
+.topbar .title {
+  display: inline-block;
+  font-size: 18px;
+  font-weight: bold;
+}
+.topbar .settings-btn {
+  display: inline-block;
+  float: right;
+  min-width: 48px;
+  min-height: 48px;
+  line-height: 48px;
+  text-align: center;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 12px;
+  border-radius: 0;
+}
+
+/* ---- Settings panel ---- */
+.settings {
+  display: none;
+  width: 100%;
+  border-bottom: 2px solid #000000;
+  padding: 16px;
+  background: #FFFFFF;
+}
+.settings.open { display: block; }
+.settings .row { display: block; margin-bottom: 12px; }
+.settings label {
+  display: block;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.settings input[type="text"],
+.settings input[type="password"] {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px;
+  font-size: 16px;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  border-radius: 0;
+  outline: none;
+}
+.settings .hint {
+  display: block;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* ---- Chat area ---- */
+.chat {
+  display: block;
+  width: 100%;
+  padding: 16px;
+}
+.msg {
+  display: block;
+  width: 100%;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.msg .bubble {
+  display: inline-block;
+  max-width: 85%;
+  padding: 8px 12px;
+  font-size: 16px;
+  line-height: 1.6;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 0;
+}
+.msg.user { text-align: right; }
+.msg.user .bubble {
+  text-align: left;
+  border-right-width: 6px;
+}
+.msg.bot { text-align: left; }
+.msg.bot .bubble {
+  border-left-width: 6px;
+}
+.msg.sys .bubble {
+  border-style: dashed;
+  border-width: 2px;
+  font-size: 14px;
+}
+
+/* ---- Fixed input bar ---- */
+.inputbar {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  border-top: 2px solid #000000;
+  background: #FFFFFF;
+  padding: 8px;
+}
+.inputbar textarea {
+  display: inline-block;
+  width: 78%;
+  min-height: 48px;
+  max-height: 96px;
+  padding: 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  vertical-align: top;
+  font-family: inherit;
+  border-radius: 0;
+  outline: none;
+  resize: none;
+}
+.inputbar button {
+  display: inline-block;
+  width: 20%;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  cursor: pointer;
+  vertical-align: top;
+  margin-left: 4px;
+  border-radius: 0;
+  padding: 0;
+}
+.inputbar button:disabled {
+  background: #000000;
+  color: #FFFFFF;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="title">E-Ink LLM Chat</span>
+  <button type="button" class="settings-btn" id="btnSettings">设置</button>
+</div>
+
+<div class="settings" id="settings">
+  <div class="row">
+    <label for="cfgBaseUrl">API 地址</label>
+    <input type="text" id="cfgBaseUrl" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
+    <span class="hint">兼容 OpenAI 协议的 Chat Completions 接口根地址</span>
+  </div>
+  <div class="row">
+    <label for="cfgApiKey">API 密钥</label>
+    <input type="password" id="cfgApiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
+    <span class="hint">仅保存在本设备浏览器缓存中，不会上传</span>
+  </div>
+  <div class="row">
+    <label for="cfgModel">模型名称</label>
+    <input type="text" id="cfgModel" placeholder="gpt-3.5-turbo" autocomplete="off" spellcheck="false">
+  </div>
+</div>
+
+<div class="chat" id="chat"></div>
+
+<div class="inputbar">
+  <textarea id="input" placeholder="输入消息..." rows="1"></textarea>
+  <button type="button" id="btnSend">发送</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'eink_llm_config';
+  var DEFAULT_CONFIG = {
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: '',
+    model: 'gpt-3.5-turbo'
+  };
+
+  var elSettings = document.getElementById('settings');
+  var elBtnSettings = document.getElementById('btnSettings');
+  var elBaseUrl = document.getElementById('cfgBaseUrl');
+  var elApiKey = document.getElementById('cfgApiKey');
+  var elModel = document.getElementById('cfgModel');
+  var elChat = document.getElementById('chat');
+  var elInput = document.getElementById('input');
+  var elBtnSend = document.getElementById('btnSend');
+
+  var history = []; // conversation history for the LLM
+  var sending = false;
+
+  // ---- Persistence ----
+  function loadConfig() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return Object.assign({}, DEFAULT_CONFIG);
+      var obj = JSON.parse(raw);
+      return {
+        baseUrl: typeof obj.baseUrl === 'string' && obj.baseUrl ? obj.baseUrl : DEFAULT_CONFIG.baseUrl,
+        apiKey: typeof obj.apiKey === 'string' ? obj.apiKey : '',
+        model: typeof obj.model === 'string' && obj.model ? obj.model : DEFAULT_CONFIG.model
+      };
+    } catch (e) {
+      return Object.assign({}, DEFAULT_CONFIG);
+    }
+  }
+
+  function saveConfig() {
+    var cfg = {
+      baseUrl: elBaseUrl.value.trim() || DEFAULT_CONFIG.baseUrl,
+      apiKey: elApiKey.value,
+      model: elModel.value.trim() || DEFAULT_CONFIG.model
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    } catch (e) {
+      // silent: storage quota or disabled
+    }
+    return cfg;
+  }
+
+  function currentConfig() {
+    return {
+      baseUrl: elBaseUrl.value.trim() || DEFAULT_CONFIG.baseUrl,
+      apiKey: elApiKey.value,
+      model: elModel.value.trim() || DEFAULT_CONFIG.model
+    };
+  }
+
+  // ---- UI ----
+  function toggleSettings() {
+    if (elSettings.className.indexOf('open') >= 0) {
+      elSettings.className = 'settings';
+    } else {
+      elSettings.className = 'settings open';
+    }
+  }
+
+  function appendMessage(role, text) {
+    var wrap = document.createElement('div');
+    var cls = 'msg';
+    if (role === 'user') cls += ' user';
+    else if (role === 'assistant') cls += ' bot';
+    else cls += ' sys';
+    wrap.className = cls;
+
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+    elChat.appendChild(wrap);
+
+    // scroll to bottom
+    window.scrollTo(0, document.body.scrollHeight);
+    return bubble;
+  }
+
+  function vibrate(ms) {
+    try {
+      if (navigator && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(ms);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---- Send ----
+  function send() {
+    if (sending) return;
+    var text = elInput.value.trim();
+    if (!text) return;
+
+    var cfg = currentConfig();
+    if (!cfg.apiKey) {
+      appendMessage('system', '请先在“设置”中填写 API 密钥。');
+      elSettings.className = 'settings open';
+      return;
+    }
+
+    elInput.value = '';
+    appendMessage('user', text);
+    history.push({ role: 'user', content: text });
+    vibrate(50);
+
+    sending = true;
+    elBtnSend.disabled = true;
+    var pending = appendMessage('assistant', '...');
+
+    var url = cfg.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+    var payload = {
+      model: cfg.model,
+      messages: history.slice(),
+      stream: false
+    };
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + cfg.apiKey
+      },
+      body: JSON.stringify(payload)
+    }).then(function (resp) {
+      return resp.text().then(function (body) {
+        return { ok: resp.ok, status: resp.status, body: body };
+      });
+    }).then(function (r) {
+      if (!r.ok) {
+        pending.textContent = '[错误 ' + r.status + '] ' + r.body;
+        return;
+      }
+      var data;
+      try {
+        data = JSON.parse(r.body);
+      } catch (e) {
+        pending.textContent = '[解析失败] ' + r.body;
+        return;
+      }
+      var reply = '';
+      if (data && data.choices && data.choices[0]) {
+        var c = data.choices[0];
+        if (c.message && typeof c.message.content === 'string') reply = c.message.content;
+        else if (typeof c.text === 'string') reply = c.text;
+      }
+      if (!reply) reply = '[空回复]';
+      pending.textContent = reply;
+      history.push({ role: 'assistant', content: reply });
+      window.scrollTo(0, document.body.scrollHeight);
+    }).catch(function (err) {
+      pending.textContent = '[网络错误] ' + (err && err.message ? err.message : String(err));
+    }).then(function () {
+      sending = false;
+      elBtnSend.disabled = false;
+    });
+  }
+
+  // ---- Init ----
+  function init() {
+    var cfg = loadConfig();
+    elBaseUrl.value = cfg.baseUrl;
+    elApiKey.value = cfg.apiKey;
+    elModel.value = cfg.model;
+
+    elBaseUrl.addEventListener('input', saveConfig);
+    elApiKey.addEventListener('input', saveConfig);
+    elModel.addEventListener('input', saveConfig);
+
+    elBtnSettings.addEventListener('click', toggleSettings);
+    elBtnSend.addEventListener('click', send);
+
+    elInput.addEventListener('keydown', function (e) {
+      // Ctrl+Enter to send; plain Enter inserts newline (better for soft keyboards)
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    if (!cfg.apiKey) {
+      elSettings.className = 'settings open';
+      appendMessage('system', '欢迎使用 E-Ink LLM Chat。请在“设置”中填写 API 地址、密钥和模型名称后开始对话。');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Local private config (never commit secrets)
+*.local.json
+config.private.*
+*.secret
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
