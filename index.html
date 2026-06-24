@@ -52,6 +52,7 @@ body {
   display: inline-block;
   font-size: 18px;
   font-weight: bold;
+  vertical-align: middle;
 }
 .topbar .settings-btn {
   display: inline-block;
@@ -70,6 +71,40 @@ body {
   border-radius: 0;
 }
 
+/* ---- Model switcher bar (shown in chat view) ---- */
+.modelbar {
+  display: block;
+  width: 100%;
+  border-bottom: 2px solid #000000;
+  padding: 8px 16px;
+  background: #FFFFFF;
+}
+.modelbar label {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: bold;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.modelbar select {
+  display: inline-block;
+  min-height: 48px;
+  font-size: 16px;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  border-radius: 0;
+  padding: 4px 8px;
+  vertical-align: middle;
+  font-family: inherit;
+  max-width: 60%;
+}
+.modelbar .empty {
+  display: inline-block;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
 /* ---- Settings panel ---- */
 .settings {
   display: none;
@@ -79,15 +114,83 @@ body {
   background: #FFFFFF;
 }
 .settings.open { display: block; }
-.settings .row { display: block; margin-bottom: 12px; }
-.settings label {
+
+.settings h2 {
+  display: block;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #000000;
+}
+
+.settings .toolbar {
+  display: block;
+  margin-bottom: 16px;
+}
+.settings .toolbar button {
+  display: inline-block;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  cursor: pointer;
+  padding: 0 12px;
+  border-radius: 0;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.settings .empty-hint {
+  display: block;
+  font-size: 14px;
+  padding: 12px;
+  border: 2px dashed #000000;
+  margin-bottom: 12px;
+}
+
+.model-card {
+  display: block;
+  width: 100%;
+  border: 2px solid #000000;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.model-card.current {
+  border-left-width: 6px;
+}
+.model-card .card-header {
+  display: block;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #000000;
+}
+.model-card .card-header .name {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: bold;
+  vertical-align: middle;
+}
+.model-card .card-header .badge {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: bold;
+  border: 2px solid #000000;
+  padding: 0 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.model-card .row { display: block; margin-bottom: 12px; }
+.model-card label {
   display: block;
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 4px;
 }
-.settings input[type="text"],
-.settings input[type="password"] {
+.model-card input[type="text"],
+.model-card input[type="password"] {
   display: block;
   width: 100%;
   min-height: 48px;
@@ -98,11 +201,39 @@ body {
   color: #000000;
   border-radius: 0;
   outline: none;
+  font-family: inherit;
 }
-.settings .hint {
+.model-card .hint {
   display: block;
   font-size: 14px;
   margin-top: 4px;
+}
+.model-card .actions {
+  display: block;
+  margin-top: 8px;
+}
+.model-card .actions button {
+  display: inline-block;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  cursor: pointer;
+  padding: 0 12px;
+  border-radius: 0;
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+.model-card .actions button.primary {
+  background: #000000;
+  color: #FFFFFF;
+}
+.model-card .actions button:disabled {
+  background: #000000;
+  color: #FFFFFF;
+  cursor: default;
 }
 
 /* ---- Chat area ---- */
@@ -117,6 +248,14 @@ body {
   margin-bottom: 16px;
   overflow: hidden;
 }
+.msg .meta {
+  display: block;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.msg.user .meta { text-align: right; }
+.msg.bot .meta { text-align: left; }
 .msg .bubble {
   display: inline-block;
   max-width: 85%;
@@ -202,21 +341,18 @@ body {
   <button type="button" class="settings-btn" id="btnSettings">设置</button>
 </div>
 
+<div class="modelbar" id="modelbar">
+  <label for="modelSelect">当前模型</label>
+  <select id="modelSelect"></select>
+  <span class="empty" id="modelEmpty" style="display:none;">尚未添加模型，请打开「设置」新增。</span>
+</div>
+
 <div class="settings" id="settings">
-  <div class="row">
-    <label for="cfgBaseUrl">API 地址</label>
-    <input type="text" id="cfgBaseUrl" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
-    <span class="hint">兼容 OpenAI 协议的 Chat Completions 接口根地址</span>
+  <h2>模型配置</h2>
+  <div class="toolbar">
+    <button type="button" id="btnAddModel">新增模型</button>
   </div>
-  <div class="row">
-    <label for="cfgApiKey">API 密钥</label>
-    <input type="password" id="cfgApiKey" placeholder="sk-..." autocomplete="off" spellcheck="false">
-    <span class="hint">仅保存在本设备浏览器缓存中，不会上传</span>
-  </div>
-  <div class="row">
-    <label for="cfgModel">模型名称</label>
-    <input type="text" id="cfgModel" placeholder="gpt-3.5-turbo" autocomplete="off" spellcheck="false">
-  </div>
+  <div id="modelList"></div>
 </div>
 
 <div class="chat" id="chat"></div>
@@ -230,64 +366,112 @@ body {
 (function () {
   'use strict';
 
+  // ---- Storage schema ----
+  // {
+  //   schema: 2,
+  //   currentId: "<model id>",
+  //   models: [
+  //     { id, displayName, modelId, baseUrl, apiKey }
+  //   ]
+  // }
   var STORAGE_KEY = 'eink_llm_config';
-  var DEFAULT_CONFIG = {
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: '',
-    model: 'gpt-3.5-turbo'
-  };
+  var SCHEMA_VERSION = 2;
 
+  var DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+
+  var state = {
+    currentId: '',
+    models: [] // array of model config objects
+  };
+  var history = []; // conversation history for the LLM
+  var sending = false;
+
+  // ---- DOM ----
   var elSettings = document.getElementById('settings');
   var elBtnSettings = document.getElementById('btnSettings');
-  var elBaseUrl = document.getElementById('cfgBaseUrl');
-  var elApiKey = document.getElementById('cfgApiKey');
-  var elModel = document.getElementById('cfgModel');
+  var elModelSelect = document.getElementById('modelSelect');
+  var elModelEmpty = document.getElementById('modelEmpty');
+  var elModelList = document.getElementById('modelList');
+  var elBtnAddModel = document.getElementById('btnAddModel');
   var elChat = document.getElementById('chat');
   var elInput = document.getElementById('input');
   var elBtnSend = document.getElementById('btnSend');
 
-  var history = []; // conversation history for the LLM
-  var sending = false;
+  // ---- Utils ----
+  function genId() {
+    return 'm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function findModel(id) {
+    for (var i = 0; i < state.models.length; i++) {
+      if (state.models[i].id === id) return state.models[i];
+    }
+    return null;
+  }
+
+  function currentModel() {
+    return findModel(state.currentId);
+  }
 
   // ---- Persistence ----
-  function loadConfig() {
+  function loadState() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return Object.assign({}, DEFAULT_CONFIG);
+      if (!raw) return { currentId: '', models: [] };
       var obj = JSON.parse(raw);
-      return {
-        baseUrl: typeof obj.baseUrl === 'string' && obj.baseUrl ? obj.baseUrl : DEFAULT_CONFIG.baseUrl,
-        apiKey: typeof obj.apiKey === 'string' ? obj.apiKey : '',
-        model: typeof obj.model === 'string' && obj.model ? obj.model : DEFAULT_CONFIG.model
-      };
+
+      // Migrate legacy single-model schema (v1):
+      // { baseUrl, apiKey, model }
+      if (obj && (typeof obj.schema !== 'number') &&
+          (typeof obj.baseUrl === 'string' || typeof obj.apiKey === 'string' || typeof obj.model === 'string')) {
+        var legacyModel = {
+          id: genId(),
+          displayName: (typeof obj.model === 'string' && obj.model) ? obj.model : '默认模型',
+          modelId: typeof obj.model === 'string' ? obj.model : '',
+          baseUrl: typeof obj.baseUrl === 'string' ? obj.baseUrl : DEFAULT_BASE_URL,
+          apiKey: typeof obj.apiKey === 'string' ? obj.apiKey : ''
+        };
+        return { currentId: legacyModel.id, models: [legacyModel] };
+      }
+
+      var models = Array.isArray(obj && obj.models) ? obj.models : [];
+      var clean = [];
+      for (var i = 0; i < models.length; i++) {
+        var m = models[i];
+        if (!m || typeof m !== 'object') continue;
+        clean.push({
+          id: typeof m.id === 'string' && m.id ? m.id : genId(),
+          displayName: typeof m.displayName === 'string' ? m.displayName : '',
+          modelId: typeof m.modelId === 'string' ? m.modelId : '',
+          baseUrl: typeof m.baseUrl === 'string' ? m.baseUrl : '',
+          apiKey: typeof m.apiKey === 'string' ? m.apiKey : ''
+        });
+      }
+      var currentId = (obj && typeof obj.currentId === 'string') ? obj.currentId : '';
+      if (currentId && !clean.some(function (m) { return m.id === currentId; })) {
+        currentId = clean.length > 0 ? clean[0].id : '';
+      }
+      if (!currentId && clean.length > 0) currentId = clean[0].id;
+      return { currentId: currentId, models: clean };
     } catch (e) {
-      return Object.assign({}, DEFAULT_CONFIG);
+      return { currentId: '', models: [] };
     }
   }
 
-  function saveConfig() {
-    var cfg = {
-      baseUrl: elBaseUrl.value.trim() || DEFAULT_CONFIG.baseUrl,
-      apiKey: elApiKey.value,
-      model: elModel.value.trim() || DEFAULT_CONFIG.model
-    };
+  function saveState() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      var payload = {
+        schema: SCHEMA_VERSION,
+        currentId: state.currentId,
+        models: state.models
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       // silent: storage quota or disabled
     }
-    return cfg;
   }
 
-  function currentConfig() {
-    return {
-      baseUrl: elBaseUrl.value.trim() || DEFAULT_CONFIG.baseUrl,
-      apiKey: elApiKey.value,
-      model: elModel.value.trim() || DEFAULT_CONFIG.model
-    };
-  }
-
-  // ---- UI ----
+  // ---- UI: settings panel ----
   function toggleSettings() {
     if (elSettings.className.indexOf('open') >= 0) {
       elSettings.className = 'settings';
@@ -296,7 +480,195 @@ body {
     }
   }
 
-  function appendMessage(role, text) {
+  function modelLabel(m) {
+    var name = (m.displayName || '').trim();
+    if (!name) name = (m.modelId || '').trim();
+    if (!name) name = '(未命名)';
+    return name;
+  }
+
+  function renderModelSelect() {
+    // Clear options
+    while (elModelSelect.firstChild) elModelSelect.removeChild(elModelSelect.firstChild);
+
+    if (state.models.length === 0) {
+      elModelSelect.style.display = 'none';
+      elModelEmpty.style.display = 'inline-block';
+      return;
+    }
+    elModelSelect.style.display = 'inline-block';
+    elModelEmpty.style.display = 'none';
+
+    for (var i = 0; i < state.models.length; i++) {
+      var m = state.models[i];
+      var opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = modelLabel(m);
+      if (m.id === state.currentId) opt.selected = true;
+      elModelSelect.appendChild(opt);
+    }
+  }
+
+  function renderModelList() {
+    while (elModelList.firstChild) elModelList.removeChild(elModelList.firstChild);
+
+    if (state.models.length === 0) {
+      var hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = '尚未添加任何模型。点击上方「新增模型」按钮开始配置。';
+      elModelList.appendChild(hint);
+      return;
+    }
+
+    for (var i = 0; i < state.models.length; i++) {
+      elModelList.appendChild(buildModelCard(state.models[i]));
+    }
+  }
+
+  function buildModelCard(m) {
+    var card = document.createElement('div');
+    card.className = 'model-card' + (m.id === state.currentId ? ' current' : '');
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'card-header';
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = modelLabel(m);
+    header.appendChild(nameSpan);
+    if (m.id === state.currentId) {
+      var badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = '当前';
+      header.appendChild(badge);
+    }
+    card.appendChild(header);
+
+    // Fields: displayName, modelId, baseUrl, apiKey
+    card.appendChild(buildField(m, 'displayName', '显示名称', 'text', '例如：GPT-4o mini', '在顶部模型切换栏中显示的名称'));
+    card.appendChild(buildField(m, 'modelId', '模型 ID', 'text', '例如：gpt-4o-mini', '请求时使用的 model 字段值'));
+    card.appendChild(buildField(m, 'baseUrl', 'API 地址（baseURL）', 'text', 'https://api.openai.com/v1', '兼容 OpenAI 协议的 Chat Completions 接口根地址'));
+    card.appendChild(buildField(m, 'apiKey', 'API 密钥', 'password', 'sk-...', '仅保存在本设备浏览器缓存中，不会上传'));
+
+    // Actions
+    var actions = document.createElement('div');
+    actions.className = 'actions';
+
+    var btnSetCurrent = document.createElement('button');
+    btnSetCurrent.type = 'button';
+    if (m.id === state.currentId) {
+      btnSetCurrent.textContent = '已是当前';
+      btnSetCurrent.disabled = true;
+    } else {
+      btnSetCurrent.textContent = '设为当前';
+      btnSetCurrent.className = 'primary';
+      btnSetCurrent.addEventListener('click', function () {
+        setCurrent(m.id);
+      });
+    }
+    actions.appendChild(btnSetCurrent);
+
+    var btnDelete = document.createElement('button');
+    btnDelete.type = 'button';
+    btnDelete.textContent = '删除';
+    btnDelete.addEventListener('click', function () {
+      deleteModel(m.id);
+    });
+    actions.appendChild(btnDelete);
+
+    card.appendChild(actions);
+    return card;
+  }
+
+  function buildField(m, key, labelText, inputType, placeholder, hintText) {
+    var row = document.createElement('div');
+    row.className = 'row';
+
+    var lbl = document.createElement('label');
+    lbl.textContent = labelText;
+    row.appendChild(lbl);
+
+    var input = document.createElement('input');
+    input.type = inputType;
+    input.value = m[key] || '';
+    input.placeholder = placeholder;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.addEventListener('input', function () {
+      m[key] = input.value;
+      saveState();
+      // Live-update header name + selector label when displayName/modelId changes
+      if (key === 'displayName' || key === 'modelId') {
+        var headerNameEl = input.parentNode && input.parentNode.parentNode
+          && input.parentNode.parentNode.querySelector
+          ? input.parentNode.parentNode.querySelector('.card-header .name')
+          : null;
+        if (headerNameEl) headerNameEl.textContent = modelLabel(m);
+        // Refresh the option text in the selector
+        for (var i = 0; i < elModelSelect.options.length; i++) {
+          if (elModelSelect.options[i].value === m.id) {
+            elModelSelect.options[i].textContent = modelLabel(m);
+            break;
+          }
+        }
+      }
+    });
+    row.appendChild(input);
+
+    if (hintText) {
+      var hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = hintText;
+      row.appendChild(hint);
+    }
+
+    return row;
+  }
+
+  // ---- Model CRUD ----
+  function addModel() {
+    var m = {
+      id: genId(),
+      displayName: '新模型 ' + (state.models.length + 1),
+      modelId: '',
+      baseUrl: DEFAULT_BASE_URL,
+      apiKey: ''
+    };
+    state.models.push(m);
+    if (!state.currentId) state.currentId = m.id;
+    saveState();
+    renderModelSelect();
+    renderModelList();
+  }
+
+  function deleteModel(id) {
+    var idx = -1;
+    for (var i = 0; i < state.models.length; i++) {
+      if (state.models[i].id === id) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    if (!window.confirm('确认删除模型「' + modelLabel(state.models[idx]) + '」？')) return;
+
+    state.models.splice(idx, 1);
+    if (state.currentId === id) {
+      state.currentId = state.models.length > 0 ? state.models[0].id : '';
+    }
+    saveState();
+    renderModelSelect();
+    renderModelList();
+  }
+
+  function setCurrent(id) {
+    if (!findModel(id)) return;
+    state.currentId = id;
+    saveState();
+    renderModelSelect();
+    renderModelList();
+    appendMessage('system', '已切换到模型：' + modelLabel(findModel(id)));
+  }
+
+  // ---- Chat UI ----
+  function appendMessage(role, text, opts) {
     var wrap = document.createElement('div');
     var cls = 'msg';
     if (role === 'user') cls += ' user';
@@ -304,13 +676,19 @@ body {
     else cls += ' sys';
     wrap.className = cls;
 
+    if (opts && opts.meta) {
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = opts.meta;
+      wrap.appendChild(meta);
+    }
+
     var bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = text;
     wrap.appendChild(bubble);
     elChat.appendChild(wrap);
 
-    // scroll to bottom
     window.scrollTo(0, document.body.scrollHeight);
     return bubble;
   }
@@ -329,12 +707,24 @@ body {
     var text = elInput.value.trim();
     if (!text) return;
 
-    var cfg = currentConfig();
-    if (!cfg.apiKey) {
-      appendMessage('system', '请先在“设置”中填写 API 密钥。');
+    var m = currentModel();
+    if (!m) {
+      appendMessage('system', '尚未添加任何模型，请打开「设置」新增一个模型。');
       elSettings.className = 'settings open';
       return;
     }
+    if (!m.apiKey) {
+      appendMessage('system', '当前模型「' + modelLabel(m) + '」未填写 API 密钥，请在「设置」中补全。');
+      elSettings.className = 'settings open';
+      return;
+    }
+    if (!m.modelId) {
+      appendMessage('system', '当前模型「' + modelLabel(m) + '」未填写模型 ID，请在「设置」中补全。');
+      elSettings.className = 'settings open';
+      return;
+    }
+    var baseUrl = (m.baseUrl || DEFAULT_BASE_URL).trim();
+    if (!baseUrl) baseUrl = DEFAULT_BASE_URL;
 
     elInput.value = '';
     appendMessage('user', text);
@@ -343,11 +733,11 @@ body {
 
     sending = true;
     elBtnSend.disabled = true;
-    var pending = appendMessage('assistant', '...');
+    var pending = appendMessage('assistant', '...', { meta: modelLabel(m) });
 
-    var url = cfg.baseUrl.replace(/\/+$/, '') + '/chat/completions';
+    var url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
     var payload = {
-      model: cfg.model,
+      model: m.modelId,
       messages: history.slice(),
       stream: false
     };
@@ -356,7 +746,7 @@ body {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + cfg.apiKey
+        'Authorization': 'Bearer ' + m.apiKey
       },
       body: JSON.stringify(payload)
     }).then(function (resp) {
@@ -395,17 +785,21 @@ body {
 
   // ---- Init ----
   function init() {
-    var cfg = loadConfig();
-    elBaseUrl.value = cfg.baseUrl;
-    elApiKey.value = cfg.apiKey;
-    elModel.value = cfg.model;
+    var loaded = loadState();
+    state.currentId = loaded.currentId;
+    state.models = loaded.models;
+    saveState(); // persist normalized form (migrates legacy schema on first load)
 
-    elBaseUrl.addEventListener('input', saveConfig);
-    elApiKey.addEventListener('input', saveConfig);
-    elModel.addEventListener('input', saveConfig);
+    renderModelSelect();
+    renderModelList();
 
     elBtnSettings.addEventListener('click', toggleSettings);
+    elBtnAddModel.addEventListener('click', addModel);
     elBtnSend.addEventListener('click', send);
+
+    elModelSelect.addEventListener('change', function () {
+      setCurrent(elModelSelect.value);
+    });
 
     elInput.addEventListener('keydown', function (e) {
       // Ctrl+Enter to send; plain Enter inserts newline (better for soft keyboards)
@@ -415,9 +809,14 @@ body {
       }
     });
 
-    if (!cfg.apiKey) {
+    if (state.models.length === 0) {
       elSettings.className = 'settings open';
-      appendMessage('system', '欢迎使用 E-Ink LLM Chat。请在“设置”中填写 API 地址、密钥和模型名称后开始对话。');
+      appendMessage('system', '欢迎使用 E-Ink LLM Chat。请在「设置」中「新增模型」并填写显示名称、模型 ID、API 地址与密钥后开始对话。');
+    } else {
+      var m = currentModel();
+      if (m && !m.apiKey) {
+        appendMessage('system', '当前模型「' + modelLabel(m) + '」尚未填写 API 密钥，请在「设置」中补全。');
+      }
     }
   }
 
