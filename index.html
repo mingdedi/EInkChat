@@ -340,6 +340,43 @@ body {
   font-size: 14px;
 }
 
+/* ---- Collapsible thinking section ---- */
+.msg .thinking-block {
+  display: block;
+  border: 2px dashed #000000;
+  margin-bottom: 8px;
+  background: #FFFFFF;
+}
+.msg .thinking-header {
+  display: block;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border-bottom: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  -webkit-tap-highlight-color: transparent;
+}
+.msg .thinking-header::before {
+  content: "[+] ";
+}
+.msg .thinking-block.open .thinking-header::before {
+  content: "[-] ";
+}
+.msg .thinking-body {
+  display: none;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #000000;
+}
+.msg .thinking-block.open .thinking-body {
+  display: block;
+}
+
 /* ---- Fixed input bar ---- */
 .inputbar {
   display: block;
@@ -869,6 +906,62 @@ body {
   }
 
   // ---- Chat UI ----
+
+  // Extract thinking content from model output.
+  // Supports: <think>...</think>, <thinking>...</thinking>, ...,
+  // and unclosed variants. Also checks API-level reasoning_content / reasoning.
+  function parseThinking(content) {
+    var thinking = null;
+    var cleaned = content;
+
+    // Ordered patterns: closed tags first, then unclosed (greedy to end)
+    var patterns = [
+      /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/i,
+      /<reasoning>([\s\S]*?)<\/reasoning>/i,
+      /<think(?:ing)?>([\s\S]*)/i,
+      /<reasoning>([\s\S]*)/i
+    ];
+
+    for (var i = 0; i < patterns.length; i++) {
+      var match = content.match(patterns[i]);
+      if (match) {
+        thinking = match[1].trim();
+        cleaned = content.replace(patterns[i], '').trim();
+        break;
+      }
+    }
+
+    return { thinking: thinking, content: cleaned };
+  }
+
+  // Insert a collapsible thinking block before the given bubble element.
+  function addThinkingBlock(bubble, thinkingText) {
+    var wrap = bubble.parentNode;
+    if (!wrap) return;
+
+    var block = document.createElement('div');
+    block.className = 'thinking-block';
+
+    var header = document.createElement('div');
+    header.className = 'thinking-header';
+    header.textContent = '思考过程（点击展开/收起）';
+    header.addEventListener('click', function () {
+      if (block.className.indexOf('open') >= 0) {
+        block.className = 'thinking-block';
+      } else {
+        block.className = 'thinking-block open';
+      }
+    });
+    block.appendChild(header);
+
+    var body = document.createElement('div');
+    body.className = 'thinking-body';
+    body.textContent = thinkingText;
+    block.appendChild(body);
+
+    wrap.insertBefore(block, bubble);
+  }
+
   function appendMessage(role, text, opts) {
     var wrap = document.createElement('div');
     var cls = 'msg';
@@ -986,14 +1079,32 @@ body {
         return;
       }
       var reply = '';
+      var apiThinking = null;
       if (data && data.choices && data.choices[0]) {
         var c = data.choices[0];
-        if (c.message && typeof c.message.content === 'string') reply = c.message.content;
+        if (c.message) {
+          if (typeof c.message.content === 'string') reply = c.message.content;
+          if (typeof c.message.reasoning_content === 'string') apiThinking = c.message.reasoning_content;
+          else if (typeof c.message.reasoning === 'string') apiThinking = c.message.reasoning;
+        }
         else if (typeof c.text === 'string') reply = c.text;
       }
       if (!reply) reply = '[空回复]';
-      pending.textContent = reply;
-      history.push({ role: 'assistant', content: reply });
+
+      var parsed = parseThinking(reply);
+      var thinking = apiThinking || parsed.thinking;
+      var displayContent = parsed.content;
+      if (!displayContent && thinking) {
+        displayContent = '(无额外回复内容)';
+      } else if (!displayContent) {
+        displayContent = reply;
+      }
+
+      if (thinking) {
+        addThinkingBlock(pending, thinking);
+      }
+      pending.textContent = displayContent;
+      history.push({ role: 'assistant', content: displayContent });
       scrollToBottom();
     }).catch(function (err) {
       pending.textContent = '[网络错误] ' + (err && err.message ? err.message : String(err));
