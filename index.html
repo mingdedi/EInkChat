@@ -150,6 +150,53 @@ body {
   margin-bottom: 8px;
 }
 
+/* ---- Export area (shown inside settings) ---- */
+.export-area {
+  display: block;
+  border: 2px solid #000000;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.export-area label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.export-area textarea {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  max-height: 240px;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  font-family: monospace;
+  border-radius: 0;
+  outline: none;
+  resize: vertical;
+  overflow: auto;
+}
+.export-area .export-actions {
+  display: block;
+  margin-top: 8px;
+}
+.export-area .export-actions button {
+  display: inline-block;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  border: 2px solid #000000;
+  background: #FFFFFF;
+  color: #000000;
+  cursor: pointer;
+  padding: 0 12px;
+  border-radius: 0;
+  margin-right: 8px;
+}
+
 .settings .empty-hint {
   display: block;
   font-size: 14px;
@@ -362,6 +409,14 @@ body {
     <button type="button" id="btnImport">导入配置</button>
     <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
   </div>
+  <div class="export-area" id="exportArea" style="display:none;">
+    <label>配置 JSON（全选复制后粘贴到文本编辑器保存为 .json 文件）</label>
+    <textarea id="exportText" readonly></textarea>
+    <div class="export-actions">
+      <button type="button" id="btnCopyExport">复制全部</button>
+      <button type="button" id="btnCloseExport">关闭</button>
+    </div>
+  </div>
   <div id="modelList"></div>
 </div>
 
@@ -406,6 +461,10 @@ body {
   var elBtnExport = document.getElementById('btnExport');
   var elBtnImport = document.getElementById('btnImport');
   var elImportFile = document.getElementById('importFile');
+  var elExportArea = document.getElementById('exportArea');
+  var elExportText = document.getElementById('exportText');
+  var elBtnCopyExport = document.getElementById('btnCopyExport');
+  var elBtnCloseExport = document.getElementById('btnCloseExport');
   var elChat = document.getElementById('chat');
   var elInput = document.getElementById('input');
   var elBtnSend = document.getElementById('btnSend');
@@ -508,10 +567,6 @@ body {
   }
 
   // ---- Config import / export ----
-  function pad2(n) {
-    return n < 10 ? '0' + n : '' + n;
-  }
-
   function exportConfig() {
     try {
       var payload = {
@@ -520,20 +575,32 @@ body {
         models: state.models
       };
       var json = JSON.stringify(payload, null, 2);
-      var d = new Date();
-      var filename = 'eink-llm-config-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.json';
-      // Use data URI instead of Blob URL — Android WebView (Via Browser)
-      // cannot trigger downloads from blob: URLs, but data: URIs work.
-      var dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
-      var a = document.createElement('a');
-      a.href = dataUri;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      appendMessage('system', '配置已导出，共 ' + state.models.length + ' 个模型。');
+      elExportText.value = json;
+      elExportArea.style.display = 'block';
+      // Auto-select the text so the user can immediately copy
+      elExportText.focus();
+      elExportText.select();
+      appendMessage('system', '配置已生成，请全选复制后保存为 .json 文件。共 ' + state.models.length + ' 个模型。');
     } catch (e) {
       appendMessage('system', '导出失败：' + (e && e.message ? e.message : String(e)));
+    }
+  }
+
+  function copyExport() {
+    try {
+      elExportText.focus();
+      elExportText.select();
+      var ok = false;
+      if (document.execCommand && document.execCommand('copy')) {
+        ok = true;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(elExportText.value);
+        ok = true;
+      }
+      appendMessage('system', ok ? '配置已复制到剪贴板。' : '复制失败，请手动全选复制。');
+    } catch (e) {
+      appendMessage('system', '复制失败，请手动全选复制。');
     }
   }
 
@@ -921,6 +988,10 @@ body {
     elBtnSend.addEventListener('click', send);
 
     elBtnExport.addEventListener('click', exportConfig);
+    elBtnCopyExport.addEventListener('click', copyExport);
+    elBtnCloseExport.addEventListener('click', function () {
+      elExportArea.style.display = 'none';
+    });
     elBtnImport.addEventListener('click', function () {
       if (state.models.length > 0) {
         if (!window.confirm('导入配置将覆盖当前所有模型设置，是否继续？')) return;
