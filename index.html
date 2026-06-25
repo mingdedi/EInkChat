@@ -358,6 +358,9 @@ body {
   <h2>模型配置</h2>
   <div class="toolbar">
     <button type="button" id="btnAddModel">新增模型</button>
+    <button type="button" id="btnExport">导出配置</button>
+    <button type="button" id="btnImport">导入配置</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
   </div>
   <div id="modelList"></div>
 </div>
@@ -400,6 +403,9 @@ body {
   var elModelEmpty = document.getElementById('modelEmpty');
   var elModelList = document.getElementById('modelList');
   var elBtnAddModel = document.getElementById('btnAddModel');
+  var elBtnExport = document.getElementById('btnExport');
+  var elBtnImport = document.getElementById('btnImport');
+  var elImportFile = document.getElementById('importFile');
   var elChat = document.getElementById('chat');
   var elInput = document.getElementById('input');
   var elBtnSend = document.getElementById('btnSend');
@@ -499,6 +505,91 @@ body {
     } catch (e) {
       // silent: storage quota or disabled
     }
+  }
+
+  // ---- Config import / export ----
+  function pad2(n) {
+    return n < 10 ? '0' + n : '' + n;
+  }
+
+  function exportConfig() {
+    try {
+      var payload = {
+        schema: SCHEMA_VERSION,
+        currentId: state.currentId,
+        models: state.models
+      };
+      var json = JSON.stringify(payload, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      var d = new Date();
+      a.download = 'eink-llm-config-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+      appendMessage('system', '配置已导出，共 ' + state.models.length + ' 个模型。');
+    } catch (e) {
+      appendMessage('system', '导出失败：' + (e && e.message ? e.message : String(e)));
+    }
+  }
+
+  function importConfig(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        var raw = ev.target.result;
+        var obj = JSON.parse(raw);
+
+        if (!obj || typeof obj !== 'object') {
+          appendMessage('system', '导入失败：文件内容不是有效的 JSON 对象。');
+          return;
+        }
+        if (!Array.isArray(obj.models)) {
+          appendMessage('system', '导入失败：缺少 models 数组，文件格式不正确。');
+          return;
+        }
+
+        var clean = [];
+        for (var i = 0; i < obj.models.length; i++) {
+          var m = obj.models[i];
+          if (!m || typeof m !== 'object') continue;
+          clean.push({
+            id: typeof m.id === 'string' && m.id ? m.id : genId(),
+            displayName: typeof m.displayName === 'string' ? m.displayName : '',
+            modelId: typeof m.modelId === 'string' ? m.modelId : '',
+            baseUrl: typeof m.baseUrl === 'string' ? m.baseUrl : '',
+            apiKey: typeof m.apiKey === 'string' ? m.apiKey : ''
+          });
+        }
+
+        if (clean.length === 0) {
+          appendMessage('system', '导入失败：文件中没有有效的模型配置。');
+          return;
+        }
+
+        var currentId = (typeof obj.currentId === 'string') ? obj.currentId : '';
+        if (!currentId || !clean.some(function (m) { return m.id === currentId; })) {
+          currentId = clean[0].id;
+        }
+
+        state.currentId = currentId;
+        state.models = clean;
+        saveState();
+        renderModelSelect();
+        renderModelList();
+        appendMessage('system', '已成功导入 ' + clean.length + ' 个模型配置。');
+      } catch (e) {
+        appendMessage('system', '导入失败：' + (e && e.message ? e.message : String(e)));
+      }
+    };
+    reader.onerror = function () {
+      appendMessage('system', '导入失败：无法读取文件。');
+    };
+    reader.readAsText(file);
   }
 
   // ---- UI: settings panel ----
@@ -827,6 +918,19 @@ body {
     elBtnSettings.addEventListener('click', toggleSettings);
     elBtnAddModel.addEventListener('click', addModel);
     elBtnSend.addEventListener('click', send);
+
+    elBtnExport.addEventListener('click', exportConfig);
+    elBtnImport.addEventListener('click', function () {
+      if (state.models.length > 0) {
+        if (!window.confirm('导入配置将覆盖当前所有模型设置，是否继续？')) return;
+      }
+      elImportFile.click();
+    });
+    elImportFile.addEventListener('change', function () {
+      var file = elImportFile.files && elImportFile.files[0];
+      if (file) importConfig(file);
+      elImportFile.value = '';
+    });
 
     elModelSelect.addEventListener('change', function () {
       setCurrent(elModelSelect.value);
