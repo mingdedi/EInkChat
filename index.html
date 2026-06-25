@@ -244,7 +244,8 @@ body {
   margin-bottom: 4px;
 }
 .model-card input[type="text"],
-.model-card input[type="password"] {
+.model-card input[type="password"],
+.model-card textarea {
   display: block;
   width: 100%;
   min-height: 48px;
@@ -256,6 +257,7 @@ body {
   border-radius: 0;
   outline: none;
   font-family: inherit;
+  resize: vertical;
 }
 .model-card .hint {
   display: block;
@@ -436,7 +438,7 @@ body {
   //   schema: 2,
   //   currentId: "<model id>",
   //   models: [
-  //     { id, displayName, modelId, baseUrl, apiKey }
+  //     { id, displayName, modelId, baseUrl, apiKey, extra_body }
   //   ]
   // }
   var STORAGE_KEY = 'eink_llm_config';
@@ -539,7 +541,8 @@ body {
           displayName: typeof m.displayName === 'string' ? m.displayName : '',
           modelId: typeof m.modelId === 'string' ? m.modelId : '',
           baseUrl: typeof m.baseUrl === 'string' ? m.baseUrl : '',
-          apiKey: typeof m.apiKey === 'string' ? m.apiKey : ''
+          apiKey: typeof m.apiKey === 'string' ? m.apiKey : '',
+          extra_body: typeof m.extra_body === 'string' ? m.extra_body : ''
         });
       }
       var currentId = (obj && typeof obj.currentId === 'string') ? obj.currentId : '';
@@ -630,7 +633,8 @@ body {
             displayName: typeof m.displayName === 'string' ? m.displayName : '',
             modelId: typeof m.modelId === 'string' ? m.modelId : '',
             baseUrl: typeof m.baseUrl === 'string' ? m.baseUrl : '',
-            apiKey: typeof m.apiKey === 'string' ? m.apiKey : ''
+            apiKey: typeof m.apiKey === 'string' ? m.apiKey : '',
+            extra_body: typeof m.extra_body === 'string' ? m.extra_body : ''
           });
         }
 
@@ -738,6 +742,7 @@ body {
     card.appendChild(buildField(m, 'modelId', '模型 ID', 'text', '例如：gpt-4o-mini', '请求时使用的 model 字段值'));
     card.appendChild(buildField(m, 'baseUrl', 'API 地址（baseURL）', 'text', 'https://api.openai.com/v1', '兼容 OpenAI 协议的 Chat Completions 接口根地址'));
     card.appendChild(buildField(m, 'apiKey', 'API 密钥', 'password', 'sk-...', '仅保存在本设备浏览器缓存中，不会上传'));
+    card.appendChild(buildField(m, 'extra_body', '额外请求参数（extra_body）', 'textarea', '{"enable_thinking": false}', 'JSON 格式的额外参数，将合并到请求体中。留空则不添加。例如控制是否思考：{"enable_thinking": false}'));
 
     // Actions
     var actions = document.createElement('div');
@@ -777,8 +782,14 @@ body {
     lbl.textContent = labelText;
     row.appendChild(lbl);
 
-    var input = document.createElement('input');
-    input.type = inputType;
+    var input;
+    if (inputType === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 3;
+    } else {
+      input = document.createElement('input');
+      input.type = inputType;
+    }
     input.value = m[key] || '';
     input.placeholder = placeholder;
     input.autocomplete = 'off';
@@ -821,7 +832,8 @@ body {
       displayName: '新模型 ' + (state.models.length + 1),
       modelId: '',
       baseUrl: DEFAULT_BASE_URL,
-      apiKey: ''
+      apiKey: '',
+      extra_body: ''
     };
     state.models.push(m);
     if (!state.currentId) state.currentId = m.id;
@@ -930,6 +942,25 @@ body {
       messages: history.slice(),
       stream: false
     };
+
+    if (m.extra_body && m.extra_body.trim()) {
+      var extra;
+      try {
+        extra = JSON.parse(m.extra_body);
+      } catch (e) {
+        pending.textContent = '[extra_body 解析失败] ' + (e && e.message ? e.message : String(e)) + '。请在设置中检查 JSON 格式。';
+        sending = false;
+        elBtnSend.disabled = false;
+        return;
+      }
+      if (extra && typeof extra === 'object' && !Array.isArray(extra)) {
+        for (var k in extra) {
+          if (extra.hasOwnProperty(k)) {
+            payload[k] = extra[k];
+          }
+        }
+      }
+    }
 
     fetch(url, {
       method: 'POST',
